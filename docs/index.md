@@ -22,7 +22,7 @@ javascript:import("https://operationcheck.github.io/fanbox-downloader/fanbox-dow
 4. Run it again on the download page[^2] and paste the JSON into the input box
 5. The download starts
 
-[^1]: Pages whose URL starts with `○○○.fanbox.cc` or `fanbox.cc/@○○○`
+[^1]: Pages whose URL starts with `{creator}.fanbox.cc` or `fanbox.cc/@{creator}`
 
 [^2]: Pages whose URL starts with `downloads.fanbox.cc` (the "View original size" image page)
 
