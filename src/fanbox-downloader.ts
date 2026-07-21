@@ -130,22 +130,29 @@ async function searchBy(
 		alert('Unrecognized URL');
 		return;
 	}
-	const plans = DownloadManage.utils.httpGetAs<Plans>(
+	const plansBody = DownloadManage.utils.httpGetAs<Plans>(
 		`https://api.fanbox.cc/plan.listCreator?creatorId=${creatorId}`,
 	).body;
+	const plans = Array.isArray(plansBody) ? plansBody : (plansBody?.plans ?? []);
 	const feeMapper = new Map<number, string>();
-	plans?.forEach((plan) => feeMapper.set(plan.fee, plan.title));
+	for (const plan of plans) {
+		feeMapper.set(plan.fee, plan.title);
+	}
 	const downloadSettings = new DownloadManage(creatorId, feeMapper);
 	downloadSettings.downloadObject.setUrl(`https://www.fanbox.cc/@${creatorId}`);
-	const definedTags =
-		DownloadManage.utils
-			.httpGetAs<Tags>(`https://api.fanbox.cc/tag.getFeatured?creatorId=${creatorId}`)
-			.body?.map((tag) => tag.tag) ?? [];
-	downloadSettings.addTags(...definedTags);
+	const tagsBody = DownloadManage.utils.httpGetAs<Tags>(
+		`https://api.fanbox.cc/tag.getFeatured?creatorId=${creatorId}`,
+	).body;
+	const tags = Array.isArray(tagsBody) ? tagsBody : (tagsBody?.featuredTags ?? []);
+	downloadSettings.addTags(...tags.map((tag) => tag.tag));
 	if (postId) addByPostInfo(downloadSettings, getPostInfoById(postId));
 	else await getItemsById(downloadSettings);
 	downloadSettings.applyTags();
 	return downloadSettings.downloadObject;
+}
+
+function getCoverImageUrl(postInfo: PostInfo): string | null {
+	return postInfo.coverImageUrl ?? postInfo.cover?.url ?? null;
 }
 
 /**
@@ -162,9 +169,10 @@ async function getItemsById(downloadManage: DownloadManage) {
 			downloadManage.setLimit(limit);
 		}
 	}
-	const urls = DownloadManage.utils.httpGetAs<{ body: string[] }>(
-		`https://api.fanbox.cc/post.paginateCreator?creatorId=${downloadManage.userId}`,
-	).body;
+	const urls =
+		DownloadManage.utils.httpGetAs<{ body: string[] }>(
+			`https://api.fanbox.cc/post.paginateCreator?creatorId=${downloadManage.userId}`,
+		).body ?? [];
 	for (let i = 0; i < urls.length; i++) {
 		console.log(`Pass ${i + 1}`);
 		await addByPostListUrl(downloadManage, urls[i]);
@@ -178,7 +186,7 @@ async function getItemsById(downloadManage: DownloadManage) {
  * @param url Post list API URL
  */
 async function addByPostListUrl(downloadManage: DownloadManage, url: string): Promise<void> {
-	const postList = DownloadManage.utils.httpGetAs<{ body: PostInfo[] }>(url).body;
+	const postList = DownloadManage.utils.httpGetAs<{ body: PostInfo[] }>(url).body ?? [];
 	console.log(`Posts: ${postList.length}`);
 	for (const post of postList) {
 		if (downloadManage.isLimitValid()) {
@@ -230,7 +238,7 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
 			)}<h5>${postName}</h5>\n`;
 		}
 		return `<h5>${postName}</h5>\n<br>\n`;
-	})(postInfo.coverImageUrl);
+	})(getCoverImageUrl(postInfo));
 
 	let parsedText: string;
 	switch (postInfo.type) {

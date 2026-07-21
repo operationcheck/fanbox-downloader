@@ -2,26 +2,38 @@
  * Plan list API response type.
  * @see https://api.fanbox.cc/plan.listCreator?creatorId=${creatorId}
  */
+type PlanInfo = {
+	id: string;
+	title: string;
+	fee: number;
+	description: string;
+	coverImageUrl: string;
+};
+
 type Plans = {
-	body?: {
-		id: string;
-		title: string;
-		fee: number;
-		description: string;
-		coverImageUrl: string;
-	}[];
+	body?: PlanInfo[] | { plans?: PlanInfo[] };
 };
 
 /**
  * Featured tags API response type.
  * @see https://api.fanbox.cc/tag.getFeatured?creatorId=${creatorId}
  */
+type TagInfo = {
+	tag: string;
+	count: number;
+	coverImageUrl: string;
+};
+
 type Tags = {
-	body?: {
-		tag: string;
-		count: number;
-		coverImageUrl: string;
-	}[];
+	body?: TagInfo[] | { featuredTags?: TagInfo[] };
+};
+
+/**
+ * Post cover — newer API uses `cover`, older responses used `coverImageUrl`.
+ */
+type PostCover = {
+	type?: string;
+	url: string;
 };
 
 /**
@@ -34,7 +46,8 @@ type PostInfo = {
 	feeRequired: number;
 	id: string;
 	creatorId: string;
-	coverImageUrl: string | null;
+	coverImageUrl?: string | null;
+	cover?: PostCover | null;
 	excerpt: string;
 	isRestricted: boolean;
 	tags: string[];
