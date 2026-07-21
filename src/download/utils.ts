@@ -81,7 +81,9 @@ export class DownloadUtils {
 						Origin: window.location.origin.includes('fanbox.cc')
 							? window.location.origin
 							: 'https://www.fanbox.cc',
-						Referer: 'https://www.fanbox.cc/',
+						Referer: window.location.origin.includes('fanbox.cc')
+							? `${window.location.origin}/`
+							: 'https://www.fanbox.cc/',
 					},
 				});
 			} catch (e) {

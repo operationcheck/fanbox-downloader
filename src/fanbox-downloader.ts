@@ -218,14 +218,19 @@ async function addByPostListUrl(downloadManage: DownloadManage, url: string): Pr
 
 /**
  * Fetch post info by post ID.
+ * Newer API: `{ body: { post: PostInfo } }`. Older API: `{ body: PostInfo }`.
  * @param postId Post ID
  */
 async function getPostInfoById(postId: string): Promise<PostInfo | undefined> {
-	return (
-		await DownloadManage.utils.httpGetAs<{ body?: PostInfo }>(
+	const body = (
+		await DownloadManage.utils.httpGetAs<PostInfoResponse>(
 			`https://api.fanbox.cc/post.info?postId=${postId}`,
 		)
 	).body;
+	if (!body) return undefined;
+	if ('post' in body && body.post) return body.post;
+	if ('id' in body) return body;
+	return undefined;
 }
 
 /**
@@ -235,6 +240,10 @@ async function getPostInfoById(postId: string): Promise<PostInfo | undefined> {
  */
 function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | undefined) {
 	if (!postInfo || (downloadManage.isIgnoreFree && postInfo.feeRequired === 0)) {
+		return;
+	}
+	if (!postInfo.id) {
+		console.log('Could not fetch post (unexpected post.info response shape)', postInfo);
 		return;
 	}
 	if (!postInfo.body || postInfo.isRestricted) {

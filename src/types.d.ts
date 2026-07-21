@@ -37,6 +37,15 @@ type PostCover = {
 };
 
 /**
+ * post.info API response.
+ * Newer responses nest the post under `body.post`; older ones put fields on `body`.
+ * @see https://api.fanbox.cc/post.info?postId=${postId}
+ */
+type PostInfoResponse = {
+	body?: PostInfo | { post?: PostInfo };
+};
+
+/**
  * Post info type.
  * @see https://api.fanbox.cc/post.listCreator?creatorId=${creatorId}
  * @see https://api.fanbox.cc/post.info?postId=${postId}
