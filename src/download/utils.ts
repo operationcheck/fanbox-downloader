@@ -171,7 +171,9 @@ export class DownloadUtils {
 		for (let attempt = 0; attempt <= limit; attempt++) {
 			await this.pace('file');
 			try {
-				const response = await fetch(url, { credentials: 'include' });
+				// pximg serves ACAO: *; credentialed fetches are rejected by the browser.
+				// same-origin keeps cookies for downloads.fanbox.cc and omits them cross-origin.
+				const response = await fetch(url, { credentials: 'same-origin' });
 				if (response.status === 429 || response.status === 503) {
 					const waitMs = this.parseRetryAfterMs(response, attempt);
 					console.warn(`Rate limited downloading ${name}, waiting ${waitMs}ms`);
