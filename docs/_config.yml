@@ -1,0 +1,10 @@
+title: fanbox-downloader
+description: A bookmarklet that downloads pixiv FANBOX posts as a ZIP archive.
+permalink: /:path/
+plugins:
+  - jekyll-sitemap
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor

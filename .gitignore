@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+*.tsbuildinfo
+docs/fanbox-downloader.min.js
+_site
+.jekyll-cache
+.sass-cache
+.bundle
+vendor

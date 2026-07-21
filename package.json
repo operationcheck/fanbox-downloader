@@ -1,0 +1,29 @@
+{
+	"name": "fanbox-downloader",
+	"version": "0.0.0",
+	"description": "A bookmarklet that downloads pixiv FANBOX posts as a ZIP archive.",
+	"homepage": "https://operationcheck.github.io/fanbox-downloader/",
+	"bugs": {
+		"url": "https://github.com/operationcheck/fanbox-downloader/issues"
+	},
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/operationcheck/fanbox-downloader.git"
+	},
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"lint": "oxlint",
+		"lint:fix": "oxlint --fix",
+		"fmt": "oxfmt",
+		"fmt:check": "oxfmt --check",
+		"check": "oxlint && oxfmt --check"
+	},
+	"devDependencies": {
+		"oxfmt": "^0.59.0",
+		"oxlint": "^1.74.0",
+		"typescript": "^7.0.2",
+		"vite": "^8.1.5"
+	}
+}
