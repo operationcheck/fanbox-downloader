@@ -10,16 +10,29 @@ export class DownloadUtils {
 	apiMinIntervalMs = 1500;
 
 	/** Minimum gap between file download requests */
-	fileMinIntervalMs = 500;
+	fileMinIntervalMs = 1500;
 
 	/** Base wait when receiving HTTP 429 / 503 */
 	rateLimitBackoffMs = 60_000;
+
+	/** Base wait when a transfer aborts mid-body (net::ERR_FAILED etc.) */
+	transferFailBackoffMs = 30_000;
+
+	/** Cool-down after several consecutive transfer failures */
+	transferCircuitBreakerMs = 120_000;
+
+	/** Consecutive transfer failures before applying the circuit-breaker cool-down */
+	transferCircuitBreakerThreshold = 2;
+
+	/** Extra pause after large successful downloads (ms per MiB, capped) */
+	largeFileCoolDownMsPerMiB = 80;
 
 	/** Max retries after rate-limit / transient failures */
 	maxRetries = 5;
 
 	private lastApiRequestAt = 0;
 	private lastFileRequestAt = 0;
+	private consecutiveTransferFailures = 0;
 
 	isAudio(fileName: string): boolean {
 		return fileName.match(this.audioExtension) != null;
@@ -162,9 +175,36 @@ export class DownloadUtils {
 		}
 	}
 
+	private async coolDownAfterSuccess(byteLength: number) {
+		const miB = byteLength / (1024 * 1024);
+		const extraMs = Math.min(45_000, Math.floor(miB * this.largeFileCoolDownMsPerMiB));
+		if (extraMs > 0) {
+			console.warn(`Cooling down ${extraMs}ms after ${miB.toFixed(1)} MiB download`);
+			await this.sleep(extraMs);
+		}
+	}
+
+	private async coolDownAfterTransferFailure(attempt: number, name: string) {
+		this.consecutiveTransferFailures++;
+		let waitMs = this.transferFailBackoffMs * 2 ** Math.min(attempt, 3);
+		if (this.consecutiveTransferFailures >= this.transferCircuitBreakerThreshold) {
+			waitMs = Math.max(waitMs, this.transferCircuitBreakerMs);
+			console.warn(
+				`Transfer circuit breaker (${this.consecutiveTransferFailures} failures), waiting ${waitMs}ms before retry: ${name}`,
+			);
+		} else {
+			console.warn(`Transfer failed, waiting ${waitMs}ms before retry: ${name}`);
+		}
+		await this.sleep(waitMs);
+	}
+
+	/**
+	 * Download a file with pacing, incomplete-body checks, and long backoff on aborts.
+	 * Returns null when all retries are exhausted (caller should skip and continue).
+	 */
 	async fetchWithLimit(
 		{ url, name }: { url: string; name: string },
-		limit: number,
+		limit: number = 5,
 	): Promise<Blob | null> {
 		if (limit < 0) return null;
 
@@ -175,6 +215,7 @@ export class DownloadUtils {
 				// same-origin keeps cookies for downloads.fanbox.cc and omits them cross-origin.
 				const response = await fetch(url, { credentials: 'same-origin' });
 				if (response.status === 429 || response.status === 503) {
+					if (attempt >= limit) return null;
 					const waitMs = this.parseRetryAfterMs(response, attempt);
 					console.warn(`Rate limited downloading ${name}, waiting ${waitMs}ms`);
 					await this.sleep(waitMs);
@@ -182,13 +223,24 @@ export class DownloadUtils {
 				}
 				if (!response.ok) {
 					console.error(`Failed to download ${name}: HTTP ${response.status}`);
-					await this.sleep(1000);
+					if (attempt >= limit) return null;
+					await this.sleep(2000 * 2 ** attempt);
 					continue;
 				}
-				return await response.blob();
+
+				const expected = Number(response.headers.get('Content-Length'));
+				const blob = await response.blob();
+				if (Number.isFinite(expected) && expected > 0 && blob.size < expected * 0.98) {
+					throw new Error(`Incomplete body for ${name}: got ${blob.size}/${expected} bytes`);
+				}
+
+				this.consecutiveTransferFailures = 0;
+				await this.coolDownAfterSuccess(blob.size);
+				return blob;
 			} catch (e) {
-				console.error(`Network error: ${name}, ${url}`, e);
-				await this.sleep(1000 * 2 ** attempt);
+				console.error(`Network/transfer error: ${name}, ${url}`, e);
+				if (attempt >= limit) break;
+				await this.coolDownAfterTransferFailure(attempt, name);
 			}
 		}
 		return null;

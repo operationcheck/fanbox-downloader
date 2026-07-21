@@ -198,6 +198,11 @@ export class DownloadHelper {
 					ctrl.enqueue(new File(fileBits, `${encodedId}/${path}`));
 				log(`@${downloadObj.id} posts:${downloadObj.postCount} files:${downloadObj.fileCount}`);
 				enqueue([createRootHtml()], 'index.html');
+				const failedFiles: {
+					url: string;
+					name: string;
+					zipPath: string;
+				}[] = [];
 				let postCount = 0;
 				for (const post of downloadObj.posts) {
 					log(`${post.originalName} (${++postCount}/${downloadObj.postCount})`);
@@ -212,20 +217,34 @@ export class DownloadHelper {
 					);
 					if (post.cover) {
 						log(`download ${post.cover.name}`);
-						const blob = await utils.fetchWithLimit(post.cover, 3);
+						const blob = await utils.fetchWithLimit(post.cover, 5);
 						if (blob) {
 							enqueue([blob], `${post.encodedName}/${post.cover.name}`);
+						} else {
+							log(`Skipped cover ${post.cover.name}`);
+							failedFiles.push({
+								url: post.cover.url,
+								name: post.cover.name,
+								zipPath: `${post.encodedName}/${post.cover.name}`,
+							});
 						}
 					}
 					let fileCount = 0;
 					for (const file of post.files) {
 						log(`download ${file.encodedName} (${++fileCount}/${post.files.length})`);
-						const blob = await utils.fetchWithLimit({ url: file.url, name: file.encodedName }, 3);
+						const blob = await utils.fetchWithLimit({ url: file.url, name: file.encodedName }, 5);
 						if (blob) {
 							enqueue([blob], `${post.encodedName}/${file.encodedName}`);
 						} else {
-							console.error(`Failed to download ${file.encodedName} (${file.url}); skipping`);
-							log(`Failed to download ${file.encodedName}`);
+							console.error(
+								`Failed to download ${file.encodedName} (${file.url}); will retry later`,
+							);
+							log(`Failed ${file.encodedName} (queued for retry)`);
+							failedFiles.push({
+								url: file.url,
+								name: file.encodedName,
+								zipPath: `${post.encodedName}/${file.encodedName}`,
+							});
 						}
 						count++;
 						setTimeout(() => {
@@ -238,6 +257,30 @@ export class DownloadHelper {
 							remainTime(`${h}:${('00' + m).slice(-2)}`);
 							progress(((count * 100) / downloadObj.fileCount) | 0);
 						}, 0);
+					}
+				}
+
+				if (failedFiles.length > 0) {
+					log(
+						`Cooling down ${utils.transferCircuitBreakerMs / 1000}s then retrying ${failedFiles.length} failed file(s)...`,
+					);
+					await utils.sleep(utils.transferCircuitBreakerMs);
+					const stillFailed: string[] = [];
+					for (const failed of failedFiles) {
+						log(`retry ${failed.name}`);
+						const blob = await utils.fetchWithLimit({ url: failed.url, name: failed.name }, 5);
+						if (blob) {
+							enqueue([blob], failed.zipPath);
+							log(`Recovered ${failed.name}`);
+						} else {
+							stillFailed.push(failed.name);
+							log(`Gave up on ${failed.name}`);
+						}
+					}
+					if (stillFailed.length > 0) {
+						log(`Still missing ${stillFailed.length} file(s): ${stillFailed.join(', ')}`);
+					} else {
+						log('All previously failed files recovered');
 					}
 				}
 				ctrl.close();
