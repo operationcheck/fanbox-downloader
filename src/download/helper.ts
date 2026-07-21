@@ -212,7 +212,7 @@ export class DownloadHelper {
 					);
 					if (post.cover) {
 						log(`download ${post.cover.name}`);
-						const blob = await utils.fetchWithLimit(post.cover, 1);
+						const blob = await utils.fetchWithLimit(post.cover, 3);
 						if (blob) {
 							enqueue([blob], `${post.encodedName}/${post.cover.name}`);
 						}
@@ -220,7 +220,7 @@ export class DownloadHelper {
 					let fileCount = 0;
 					for (const file of post.files) {
 						log(`download ${file.encodedName} (${++fileCount}/${post.files.length})`);
-						const blob = await utils.fetchWithLimit({ url: file.url, name: file.encodedName }, 1);
+						const blob = await utils.fetchWithLimit({ url: file.url, name: file.encodedName }, 3);
 						if (blob) {
 							enqueue([blob], `${post.encodedName}/${file.encodedName}`);
 						} else {
@@ -238,7 +238,6 @@ export class DownloadHelper {
 							remainTime(`${h}:${('00' + m).slice(-2)}`);
 							progress(((count * 100) / downloadObj.fileCount) | 0);
 						}, 0);
-						await utils.sleep(100);
 					}
 				}
 				ctrl.close();

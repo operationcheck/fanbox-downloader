@@ -87,11 +87,23 @@ export async function main() {
 	} else if (window.location.origin === 'https://www.fanbox.cc') {
 		const creatorId = window.location.href.match(/fanbox.cc\/@([^/]*)/)?.[1];
 		const postId = window.location.href.match(/fanbox.cc\/@.*\/posts\/(\d*)/)?.[1];
-		downloadObject = await searchBy(creatorId, postId);
+		try {
+			downloadObject = await searchBy(creatorId, postId);
+		} catch (e) {
+			console.error(e);
+			alert(`Failed to collect posts (${e instanceof Error ? e.message : String(e)})`);
+			return;
+		}
 	} else if (window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)) {
 		const creatorId = window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)?.[1];
 		const postId = window.location.href.match(/.*\.fanbox\.cc\/posts\/(\d*)/)?.[1];
-		downloadObject = await searchBy(creatorId, postId);
+		try {
+			downloadObject = await searchBy(creatorId, postId);
+		} catch (e) {
+			console.error(e);
+			alert(`Failed to collect posts (${e instanceof Error ? e.message : String(e)})`);
+			return;
+		}
 	} else {
 		alert(`Unknown page (${window.location.href})`);
 		return;
@@ -130,8 +142,10 @@ async function searchBy(
 		alert('Unrecognized URL');
 		return;
 	}
-	const plansBody = DownloadManage.utils.httpGetAs<Plans>(
-		`https://api.fanbox.cc/plan.listCreator?creatorId=${creatorId}`,
+	const plansBody = (
+		await DownloadManage.utils.httpGetAs<Plans>(
+			`https://api.fanbox.cc/plan.listCreator?creatorId=${creatorId}`,
+		)
 	).body;
 	const plans = Array.isArray(plansBody) ? plansBody : (plansBody?.plans ?? []);
 	const feeMapper = new Map<number, string>();
@@ -140,12 +154,14 @@ async function searchBy(
 	}
 	const downloadSettings = new DownloadManage(creatorId, feeMapper);
 	downloadSettings.downloadObject.setUrl(`https://www.fanbox.cc/@${creatorId}`);
-	const tagsBody = DownloadManage.utils.httpGetAs<Tags>(
-		`https://api.fanbox.cc/tag.getFeatured?creatorId=${creatorId}`,
+	const tagsBody = (
+		await DownloadManage.utils.httpGetAs<Tags>(
+			`https://api.fanbox.cc/tag.getFeatured?creatorId=${creatorId}`,
+		)
 	).body;
 	const tags = Array.isArray(tagsBody) ? tagsBody : (tagsBody?.featuredTags ?? []);
 	downloadSettings.addTags(...tags.map((tag) => tag.tag));
-	if (postId) addByPostInfo(downloadSettings, getPostInfoById(postId));
+	if (postId) addByPostInfo(downloadSettings, await getPostInfoById(postId));
 	else await getItemsById(downloadSettings);
 	downloadSettings.applyTags();
 	return downloadSettings.downloadObject;
@@ -170,13 +186,14 @@ async function getItemsById(downloadManage: DownloadManage) {
 		}
 	}
 	const urls =
-		DownloadManage.utils.httpGetAs<{ body: string[] }>(
-			`https://api.fanbox.cc/post.paginateCreator?creatorId=${downloadManage.userId}`,
+		(
+			await DownloadManage.utils.httpGetAs<{ body: string[] }>(
+				`https://api.fanbox.cc/post.paginateCreator?creatorId=${downloadManage.userId}`,
+			)
 		).body ?? [];
 	for (let i = 0; i < urls.length; i++) {
-		console.log(`Pass ${i + 1}`);
+		console.log(`Pass ${i + 1}/${urls.length}`);
 		await addByPostListUrl(downloadManage, urls[i]);
-		await DownloadManage.utils.sleep(100);
 	}
 }
 
@@ -186,15 +203,14 @@ async function getItemsById(downloadManage: DownloadManage) {
  * @param url Post list API URL
  */
 async function addByPostListUrl(downloadManage: DownloadManage, url: string): Promise<void> {
-	const postList = DownloadManage.utils.httpGetAs<{ body: PostInfo[] }>(url).body ?? [];
+	const postList = (await DownloadManage.utils.httpGetAs<{ body: PostInfo[] }>(url)).body ?? [];
 	console.log(`Posts: ${postList.length}`);
 	for (const post of postList) {
 		if (downloadManage.isLimitValid()) {
 			if (post.body) {
 				addByPostInfo(downloadManage, post);
 			} else if (!post.isRestricted) {
-				await DownloadManage.utils.sleep(100);
-				addByPostInfo(downloadManage, getPostInfoById(post.id));
+				addByPostInfo(downloadManage, await getPostInfoById(post.id));
 			}
 		} else break;
 	}
@@ -204,9 +220,11 @@ async function addByPostListUrl(downloadManage: DownloadManage, url: string): Pr
  * Fetch post info by post ID.
  * @param postId Post ID
  */
-function getPostInfoById(postId: string): PostInfo | undefined {
-	return DownloadManage.utils.httpGetAs<{ body?: PostInfo }>(
-		`https://api.fanbox.cc/post.info?postId=${postId}`,
+async function getPostInfoById(postId: string): Promise<PostInfo | undefined> {
+	return (
+		await DownloadManage.utils.httpGetAs<{ body?: PostInfo }>(
+			`https://api.fanbox.cc/post.info?postId=${postId}`,
+		)
 	).body;
 }
 
