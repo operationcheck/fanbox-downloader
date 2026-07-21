@@ -18,7 +18,9 @@
 		"lint:fix": "oxlint --fix",
 		"fmt": "oxfmt",
 		"fmt:check": "oxfmt --check",
-		"check": "oxlint && oxfmt --check"
+		"check": "oxlint && oxfmt --check",
+		"download": "node scripts/download-local.mjs",
+		"zip": "node scripts/zip-downloads.mjs"
 	},
 	"devDependencies": {
 		"oxfmt": "^0.59.0",

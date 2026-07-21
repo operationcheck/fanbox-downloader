@@ -1,0 +1,4 @@
+# Paste the Cookie request header value from DevTools (fanbox.cc or downloads.fanbox.cc).
+# Lines starting with # are ignored.
+# Example:
+# FANBOXSESSID=xxxxxxxx; consents=yyyyyyyy

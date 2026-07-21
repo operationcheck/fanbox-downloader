@@ -8,3 +8,7 @@ _site
 .sass-cache
 .bundle
 vendor
+scripts/download.json
+scripts/cookie.txt
+downloads/
+.DS_Store

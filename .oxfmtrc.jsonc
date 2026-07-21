@@ -10,5 +10,5 @@
 	"quoteProps": "as-needed",
 	"endOfLine": "lf",
 	"printWidth": 100,
-	"ignorePatterns": ["docs/**", "pnpm-lock.yaml", "node_modules/**"],
+	"ignorePatterns": ["docs/**", "pnpm-lock.yaml", "node_modules/**", "downloads/**"],
 }
